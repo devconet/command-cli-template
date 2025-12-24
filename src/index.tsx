@@ -3,9 +3,10 @@
 import { render, Box, Text, Newline } from 'ink';
 import TextInput from 'ink-text-input';
 import { useState, memo } from 'react';
-import { Command } from 'commander';
-import { setupCommands, executeCommand } from './commands';
+import { setupCommands } from './commands';
 import type { CommandOutput } from './commands';
+import { runCommand } from './runCommand';
+import { Cli } from 'clipanion';
 
 // Memoized Dashboard to prevent unnecessary re-renders on every keystroke
 const Dashboard = memo(({ logs, status }: { logs: string[]; status: string }) => (
@@ -34,35 +35,36 @@ function App() {
   const [input, setInput] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
   const [status, setStatus] = useState<string>('Ready');
-  const [program] = useState<Command>(() => setupCommands());
+  const [cli] = useState<Cli>(() => setupCommands());
 
   const handleSubmit = async (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
+  const trimmed = value.trim();
+  if (!trimmed) return;
 
-    // Add timestamped input to logs
-    setLogs((prev) => [
-      ...prev,
-      `[${new Date().toLocaleTimeString()}] > ${trimmed}`,
-    ]);
+  // Add timestamped input to logs
+  setLogs((prev) => [
+    ...prev,
+    `[${new Date().toLocaleTimeString()}] > ${trimmed}`,
+  ]);
 
-    // Execute command
-    const result: CommandOutput = await executeCommand(value, program);
+  // Execute command using Clipanion
+  try {
+    const { stdout, stderr } = await runCommand(cli, trimmed);
 
-    // Add result to logs
-    setLogs((prev) => [
-      ...prev,
-      result.success ? `✓ ${result.message}` : `✗ ${result.message}`,
-    ]);
-
-    // Update status if there's data
-    if (result.data) {
-      setStatus(JSON.stringify(result.data, null, 2));
+    if (stdout) {
+      setLogs((prev) => [...prev, `✓ ${stdout}`]);
     }
+    if (stderr) {
+      setLogs((prev) => [...prev, `✗ ${stderr}`]);
+    }
+  } catch (err: any) {
+    setLogs((prev) => [...prev, `✗ ${err.message ?? 'Command failed'}`]);
+  }
 
-    // Clear input
-    setInput('');
-  };
+  // Clear input
+  setInput('');
+};
+
 
   return (
     <Box flexDirection="column" height="100%">
@@ -81,6 +83,7 @@ function App() {
       </Box>
     </Box>
   );
+
 }
 
 render(<App />);
