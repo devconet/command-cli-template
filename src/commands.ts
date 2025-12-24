@@ -1,6 +1,8 @@
 // src/commands.ts
 import { Command } from 'commander';
 
+let lastCommandOutput: CommandOutput | null = null;
+
 export interface CommandOutput {
   success: boolean;
   message: string;
@@ -15,7 +17,7 @@ export function setupCommands(): Command {
     .version('1.0.0')
     .description('My awesome TUI CLI');
 
-  // Greet command
+  // Greet command 
   program
     .command('greet')
     .description('Greet someone')
@@ -23,11 +25,12 @@ export function setupCommands(): Command {
     .option('-t, --title <title>', 'title', 'Mr.')
     .action(((name: string, options: { title?: string }) => {
       const title = options.title || 'Mr.';
-      return {
+      const output: CommandOutput = {
         success: true,
         message: `Hello ${title} ${name}!`,
         data: { name, title },
-      } as CommandOutput;
+      }
+        lastCommandOutput = output;
     }) as any);
 
   // Status command
@@ -35,14 +38,15 @@ export function setupCommands(): Command {
     .command('status')
     .description('Show current status')
     .action((() => {
-      return {
+  const output: CommandOutput = {
         success: true,
         message: 'System is running smoothly!',
         data: {
           uptime: process.uptime(),
           memory: process.memoryUsage().heapUsed,
         },
-      } as CommandOutput;
+      }
+        lastCommandOutput = output;
     }) as any);
 
   // Help command
@@ -50,10 +54,11 @@ export function setupCommands(): Command {
     .command('help')
     .description('Show help')
     .action((() => {
-      return {
+  const output: CommandOutput = {
         success: true,
         message: program.helpInformation(),
-      } as CommandOutput;
+      }
+        lastCommandOutput = output;
     }) as any);
 
   // Exit command
@@ -84,18 +89,23 @@ export async function executeCommand(
   program: Command
 ): Promise<CommandOutput> {
   try {
+    const program = setupCommands(); // 
+    
     const trimmed = commandLine.trim();
     if (!trimmed) {
       return { success: false, message: 'No command provided' };
     }
 
     const args = trimmed.split(/\s+/);
-    const cmdName = args[0]?.toLowerCase(); // still string | undefined
+    const fullArgs = [process.argv[0] || 'node', ...args];
+
+    const cmdName = args[0]?.toLowerCase();
 
     if (!cmdName) {
       return { success: false, message: 'No command name provided' };
     }
 
+    // Find command to check if it exists
     const cmd = program.commands.find(
       c => c.name() === cmdName || c.aliases().includes(cmdName)
     );
@@ -107,13 +117,22 @@ export async function executeCommand(
       };
     }
 
-    // Success fallback if no error occurred
+    lastCommandOutput = null;
+    // Run the command – this will trigger the .action() handler
+    await program.parseAsync(fullArgs, { from: 'user' });
+
+//    if (lastCommandOutput) {
+//  return lastCommandOutput;
+//}
+    // Return success – the action will have already logged or handled output
     return {
       success: true,
-      message: `Executed ${cmdName}`,
+      message: `${lastCommandOutput} - Executed ${cmdName}`,
     };
-    // ... rest of the function
   } catch (err: any) {
-    return { success: false, message: err.message || 'Command failed' };
+    return {
+      success: false,
+      message: err.message || 'Command failed',
+    };
   }
 }
