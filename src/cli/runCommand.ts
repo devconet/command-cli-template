@@ -1,6 +1,6 @@
 // src/runtime/runCommand.ts
 import { Cli } from 'clipanion';
-import { OutputBuffer } from './OutputBuffer';
+import { OutputBuffer } from '../utilities/OutputBuffer';
 
 export async function runCommand(
   cli: Cli,

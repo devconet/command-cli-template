@@ -3,9 +3,8 @@
 import { render, Box, Text, Newline } from 'ink';
 import TextInput from 'ink-text-input';
 import { useState, memo } from 'react';
-import { setupCommands } from './commands';
-import type { CommandOutput } from './commands';
-import { runCommand } from './runCommand';
+import { setupCommands } from './cli/setupCommand';
+import { runCommand } from './cli/runCommand';
 import { Cli } from 'clipanion';
 
 // Memoized Dashboard to prevent unnecessary re-renders on every keystroke
